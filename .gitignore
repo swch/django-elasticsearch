@@ -1,0 +1,5 @@
+.idea
+*.pyc
+build/
+dist/
+django_elasticsearch.egg-info/

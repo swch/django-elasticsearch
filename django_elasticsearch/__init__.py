@@ -15,4 +15,7 @@ __docformat__ = "restructuredtext"
 from django.conf import settings
 
 if not "django_elasticsearch" in settings.INSTALLED_APPS:
-    settings.INSTALLED_APPS.insert(0, "django_elasticsearch")
+    if isinstance(settings.INSTALLED_APPS, tuple):
+        settings.INSTALLED_APPS = ('django_elasticsearch',) + settings.INSTALLED_APPS
+    else:
+        settings.INSTALLED_APPS.insert(0, "django_elasticsearch")

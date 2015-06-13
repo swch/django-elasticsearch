@@ -1,5 +1,8 @@
 from djangotoolbox.db.base import NonrelDatabaseCreation
 from pyes.exceptions import NotFoundException
+from pyes.helpers import SettingsBuilder
+import json
+
 TEST_DATABASE_PREFIX = 'test_'
 
 class DatabaseCreation(NonrelDatabaseCreation):
@@ -31,6 +34,7 @@ class DatabaseCreation(NonrelDatabaseCreation):
         'RelatedAutoField':             'unicode',
         'OneToOneField':                'int',
         'DecimalField':                 'float',
+        'ListField':                    'list',
     }
 
     def sql_indexes_for_field(self, model, f, style):
@@ -45,10 +49,20 @@ class DatabaseCreation(NonrelDatabaseCreation):
         """Not required. In ES all is index!!"""
         return []
 
+    def fix_borked_mapping(self, in_mapping):
+        for k,v in in_mapping.iteritems():
+            if k == 'index':
+                in_mapping[k] = 'not_analyzed' if v else 'no'
+            elif isinstance(v, dict):
+                in_mapping[k] = self.fix_borked_mapping(v)
+        return in_mapping
+
     def sql_create_model(self, model, style, known_models=set()):
         from mapping import model_to_mapping
         mappings = model_to_mapping(model)
-        self.connection.db_connection.put_mapping(model._meta.db_table, {mappings.name:mappings.as_dict()})
+        mappings_dict = mappings.as_dict()
+        del mappings_dict['type']
+        self.connection.db_connection.indices.put_mapping(model._meta.db_table, self.fix_borked_mapping({model._meta.db_table:mappings_dict}))
         return [], {}
 
     def set_autocommit(self):

@@ -16,6 +16,7 @@ def model_to_mapping(model, depth=1):
     fields_options = indexoptions.get("fields", {})
     extra_fields = indexoptions.get("extra_fields", {})
     mapper = mappings.ObjectField(meta.module_name)
+
     for field in meta.fields + meta.many_to_many:
         name = field.name
         if name in ignore:
@@ -48,7 +49,7 @@ def get_mapping_for_field(field, depth=1, **options):
 #                                   fields={field.name:mappings.StringField(name=field.name, store=True),
 #                                           "int":mappings.IntegerField(name="int", store=True)}
 #                                   )
-        return mappings.StringField(name=field.name, store=True)
+        return mappings.StringField(name=field.name, store=True, index="analyzed")
     elif ntype in ["IntegerField",
                    "PositiveSmallIntegerField",
                    "SmallIntegerField",
@@ -133,6 +134,6 @@ def get_mapping_for_field(field, depth=1, **options):
             return None
         if depth < 0:
             return None
-    print ntype
+    print "printing un-mapped type: "+ntype
     return None
 

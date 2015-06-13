@@ -78,14 +78,14 @@ class DatabaseWrapper(NonrelDatabaseWrapper):
             self._connection = ES("%s:%s" % (self.settings_dict['HOST'], port),
                                   decoder=Decoder,
                                   encoder=Encoder,
-                                  autorefresh=True,
                                   default_indices=[self.db_name])
 
             self._db_connection = self._connection
             #auto index creation: check if to remove
-            try:
-                self._connection.create_index(self.db_name)
-            except:
-                pass
+            self._connection.ensure_index(self.db_name)
+            # try:
+            #     self._connection.create_index(self.db_name)
+            # except:
+            #     pass
             # We're done!
             self._is_connected = True

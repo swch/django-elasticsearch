@@ -116,7 +116,10 @@ class Encoder(JSONEncoder):
         elif isinstance(value, (str, unicode)):
             pass
         elif hasattr(value, "__iter__"): # Make sure we recurse into sub-docs
-            value = [self.transform_incoming(item, collection) for item in value]
+            new_value = {}
+            for tuple_obj in value:
+                new_value[tuple_obj[0]] = tuple_obj[1]
+            value = new_value
         elif isinstance(value, (Model, EmbeddedModel)):
             value = self.encode_django(value)
         return value

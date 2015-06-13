@@ -9,13 +9,14 @@ from django.db import models
 from django.db.models.sql import aggregates as sqlaggregates
 from django.db.models.sql.compiler import SQLCompiler
 from django.db.models.sql import aggregates as sqlaggregates
-from django.db.models.sql.constants import LOOKUP_SEP, MULTI, SINGLE
+from django.db.models.constants import LOOKUP_SEP
+from django.db.models.sql.constants import MULTI, SINGLE
 from django.db.models.sql.where import AND, OR
 from django.db.utils import DatabaseError, IntegrityError
 from django.db.models.sql.where import WhereNode
 from django.db.models.fields import NOT_PROVIDED
 from django.utils.tree import Node
-from pyes import MatchAllQuery, FilteredQuery, BoolQuery, StringQuery, \
+from pyes import MatchAllQuery, FilteredQuery, BoolQuery, QueryStringQuery, \
                 WildcardQuery, RegexTermQuery, RangeQuery, ESRange, \
                 TermQuery, ConstantScoreQuery, TermFilter, TermsFilter, NotFilter, RegexTermFilter
 from djangotoolbox.db.basecompiler import NonrelQuery, NonrelCompiler, \
@@ -122,7 +123,7 @@ class DBQuery(NonrelQuery):
         return '<DBQuery: %r ORDER %r>' % (self.db_query, self._ordering)
 
     @safe_call
-    def fetch(self, low_mark, high_mark):
+    def fetch(self, low_mark=0, high_mark=None):
         results = self._get_results()
 
         if low_mark > 0:
@@ -131,8 +132,8 @@ class DBQuery(NonrelQuery):
             results = results[low_mark:high_mark - low_mark]
 
         for hit in results:
-            entity = hit.get_data()
-            entity['id'] = hit.meta.id
+            entity = hit
+            entity['id'] = hit._meta.id
             yield entity
 
     @safe_call
@@ -159,9 +160,7 @@ class DBQuery(NonrelQuery):
 
     # This function is used by the default add_filters() implementation
     @safe_call
-    def add_filter(self, column, lookup_type, negated, db_type, value):
-        if column == self.query.get_meta().pk.column:
-            column = '_id'
+    def add_filter(self, column, lookup_type, negated, value):
         # Emulated/converted lookups
 
         if negated and lookup_type in NEGATED_OPERATORS_MAP:
@@ -169,43 +168,45 @@ class DBQuery(NonrelQuery):
             negated = False
         else:
             op = OPERATORS_MAP[lookup_type]
-        value = op(self.convert_value_for_db(db_type, value))
+        value = op(value)
 
-        queryf = self._get_query_type(column, lookup_type, db_type, value)
+        queryf = self._get_query_type(column, lookup_type, value)
 
         if negated:
             self.db_query.add([NotFilter(queryf)])
         else:
             self.db_query.add([queryf])
 
-    def _get_query_type(self, column, lookup_type, db_type, value):
-        if db_type == "unicode":
-            if (lookup_type == "exact" or lookup_type == "iexact"):
-                q = TermQuery(column, value)
-                return q
-            if (lookup_type == "startswith" or lookup_type == "istartswith"):
-                return RegexTermFilter(column, value)
-            if (lookup_type == "endswith" or lookup_type == "iendswith"):
-                return RegexTermFilter(column, value)
-            if (lookup_type == "contains" or lookup_type == "icontains"):
-                return RegexTermFilter(column, value)
-            if (lookup_type == "regex" or lookup_type == "iregex"):
-                return RegexTermFilter(column, value)
+    def _get_query_type(self, column, lookup_type, value):
+        if lookup_type == "exact" or lookup_type == "iexact":
+            field_name = column.name
+            if field_name == 'id':
+                field_name = '_id'
+            q = TermQuery(field_name, value)
+            return q
+        if lookup_type == "startswith" or lookup_type == "istartswith":
+            return RegexTermFilter(column.name, value)
+        if lookup_type == "endswith" or lookup_type == "iendswith":
+            return RegexTermFilter(column.name, value)
+        if lookup_type == "contains" or lookup_type == "icontains":
+            return RegexTermFilter(column.name, value)
+        if lookup_type == "regex" or lookup_type == "iregex":
+            return RegexTermFilter(column.name, value)
 
-        if db_type == "datetime" or db_type == "date":
-            if (lookup_type == "exact" or lookup_type == "iexact"):
-                return TermFilter(column, value)
+        # if db_type == "datetime" or db_type == "date":
+        #     if (lookup_type == "exact" or lookup_type == "iexact"):
+        #         return TermFilter(column, value)
 
         #TermFilter, TermsFilter
         if lookup_type in ["gt", "gte", "lt", "lte", "range", "year"]:
-            value['field'] = column
+            value['field'] = column.name
             return RangeQuery(ESRange(**value))
         if lookup_type == "in":
 #            terms = [TermQuery(column, val) for val in value]
 #            if len(terms) == 1:
 #                return terms[0]
 #            return BoolQuery(should=terms)
-            return TermsFilter(field=column, values=value)
+            return TermsFilter(field=column.name, values=value)
         raise NotImplemented
 
     def _get_results(self):
@@ -305,7 +306,9 @@ class SQLInsertCompiler(NonrelInsertCompiler, SQLCompiler):
             pk = data[pk_column]
         db_table = self.query.get_meta().db_table
         logging.debug("Insert data %s: %s" % (db_table, data))
-        #print("Insert data %s: %s" % (db_table, data))
+        import json
+        data = data[0]
+        print("Insert data %s: %s" % (db_table, data))
         res = self.connection.db_connection.index(data, self.connection.db_name, db_table, id=pk)
         #print "Insert result", res
         return res['_id']
@@ -325,7 +328,7 @@ class SQLUpdateCompiler(SQLCompiler):
         pk_name = pk_field.attname
 
         db_table = self.query.get_meta().db_table
-        res = self.connection.db_connection.index(data, self.connection.db_name, db_table, id=pk)
+        res = self.connection.db_connection.index(data, self.connection.db_name, db_table, id=pk_field)
 
         return res['_id']
 

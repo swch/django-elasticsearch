@@ -132,7 +132,7 @@ class DBQuery(NonrelQuery):
                     if "_id" in self.db_query.queries[0]._values:
                         s_id = self.db_query.queries[0]._values['_id']
                         result = self._connection.get(index=self.connection.db_name, doc_type=self.query.model._meta.db_table, id=s_id)
-                        result['id'] = result['_id']
+                        result['id'] = result._meta.id
                         yield result
                         return
 

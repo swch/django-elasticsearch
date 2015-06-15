@@ -19,6 +19,7 @@ from django.utils.tree import Node
 from pyes import MatchAllQuery, FilteredQuery, BoolQuery, QueryStringQuery, \
                 WildcardQuery, RegexTermQuery, RangeQuery, ESRange, \
                 TermQuery, ConstantScoreQuery, TermFilter, TermsFilter, NotFilter, RegexTermFilter
+from pyes.query import Search
 from djangotoolbox.db.basecompiler import NonrelQuery, NonrelCompiler, \
     NonrelInsertCompiler, NonrelUpdateCompiler, NonrelDeleteCompiler
 from django.db.models.fields import AutoField
@@ -124,12 +125,18 @@ class DBQuery(NonrelQuery):
 
     @safe_call
     def fetch(self, low_mark=0, high_mark=None):
-        results = self._get_results()
+        count = None
+
+        if high_mark and low_mark:
+            if high_mark - low_mark > 0:
+                count = high_mark - low_mark
+
+        results = self._get_results(index=low_mark, count=count)
 
         if low_mark > 0:
-            results = results[low_mark:]
+            results = results[0:]
         if high_mark is not None:
-            results = results[low_mark:high_mark - low_mark]
+            results = results[0:high_mark - low_mark]
 
         for hit in results:
             entity = hit
@@ -209,7 +216,7 @@ class DBQuery(NonrelQuery):
             return TermsFilter(field=column.name, values=value)
         raise NotImplemented
 
-    def _get_results(self):
+    def _get_results(self, index=0, count=None):
         """
         @returns: elasticsearch iterator over results
         defined by self.query
@@ -219,6 +226,14 @@ class DBQuery(NonrelQuery):
             query = MatchAllQuery()
         if self._ordering:
             query.sort = self._ordering
+        query = Search(query)
+        query.bulk_read = 5000
+        if index > 0 and count is not None:
+            query.start = index
+            query.size = count
+        # else:
+        #     query = Search(query, start=0, size=5000)
+
         #print "query", self.query.tables, query
         return self._connection.search(query, indices=[self.connection.db_name], doc_types=self.query.model._meta.db_table)
 

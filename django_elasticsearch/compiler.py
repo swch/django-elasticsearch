@@ -125,8 +125,17 @@ class DBQuery(NonrelQuery):
 
     @safe_call
     def fetch(self, low_mark=0, high_mark=None):
-        count = None
 
+        if isinstance(self.db_query, ConstantScoreQuery):
+            if len(self.db_query.queries) == 1:
+                if isinstance(self.db_query.queries[0], TermQuery):
+                    if "_id" in self.db_query.queries[0]._values:
+                        s_id = self.db_query.queries[0]._values['_id']
+                        result = self._connection.get(index=self.connection.db_name, doc_type=self.query.model._meta.db_table, id=s_id)
+                        yield result
+                        return
+
+        count = None
         if high_mark and low_mark:
             if high_mark - low_mark > 0:
                 count = high_mark - low_mark
@@ -231,6 +240,7 @@ class DBQuery(NonrelQuery):
         if index > 0 and count is not None:
             query.start = index
             query.size = count
+
         # else:
         #     query = Search(query, start=0, size=5000)
 

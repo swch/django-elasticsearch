@@ -302,13 +302,12 @@ class SQLInsertCompiler(NonrelInsertCompiler, SQLCompiler):
     def insert(self, data, return_id=False):
         pk_column = self.query.get_meta().pk.column
         pk = None
+        data = data[0]
         if pk_column in data:
             pk = data[pk_column]
         db_table = self.query.get_meta().db_table
-        logging.debug("Insert data %s: %s" % (db_table, data))
-        import json
-        data = data[0]
-        print("Insert data %s: %s" % (db_table, data))
+        # logging.debug("Insert data %s: %s" % (db_table, data))
+        # print("Insert data %s: %s" % (db_table, data))
         res = self.connection.db_connection.index(data, self.connection.db_name, db_table, id=pk)
         #print "Insert result", res
         return res['_id']

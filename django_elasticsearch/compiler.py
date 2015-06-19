@@ -53,22 +53,22 @@ OPERATORS_MAP = {
     'icontains':    lambda val: r'%s' % re.escape(val),
     'regex':    lambda val: val,
     'iregex':   lambda val: re.compile(val, re.IGNORECASE),
-    'gt':       lambda val: {"_from" : val, "include_lower" : False},
-    'gte':      lambda val: {"_from" : val, "include_lower" : True},
-    'lt':       lambda val: {"_to" : val, "include_upper": False},
-    'lte':      lambda val: {"_to" : val, "include_upper": True},
-    'range':    lambda val: {"_from" : val[0], "_to" : val[1], "include_lower" : True, "include_upper": True},
-    'year':     lambda val: {"_from" : val[0], "_to" : val[1], "include_lower" : True, "include_upper": False},
+    'gt':       lambda val: {"from_value" : val, "include_lower" : False},
+    'gte':      lambda val: {"from_value" : val, "include_lower" : True},
+    'lt':       lambda val: {"to_value" : val, "include_upper": False},
+    'lte':      lambda val: {"to_value" : val, "include_upper": True},
+    'range':    lambda val: {"from_value" : val[0], "to_value" : val[1], "include_lower" : True, "include_upper": True},
+    'year':     lambda val: {"from_value" : val[0], "to_value" : val[1], "include_lower" : True, "include_upper": False},
     'isnull':   lambda val: None if val else {'$ne': None},
     'in':       lambda val: val,
 }
 
 NEGATED_OPERATORS_MAP = {
     'exact':    lambda val: {'$ne': val},
-    'gt':       lambda val: {"_to" : val, "include_upper": True},
-    'gte':      lambda val: {"_to" : val, "include_upper": False},
-    'lt':       lambda val: {"_from" : val, "include_lower" : True},
-    'lte':      lambda val: {"_from" : val, "include_lower" : False},
+    'gt':       lambda val: {"to_value" : val, "include_upper": True},
+    'gte':      lambda val: {"to_value" : val, "include_upper": False},
+    'lt':       lambda val: {"from_value" : val, "include_lower" : True},
+    'lte':      lambda val: {"from_value" : val, "include_lower" : False},
     'isnull':   lambda val: {'$ne': None} if val else None,
     'in':       lambda val: {'$nin': val},
 }
@@ -186,7 +186,7 @@ class DBQuery(NonrelQuery):
         else:
             op = OPERATORS_MAP[lookup_type]
         value = op(value)
-
+        print(value)
         queryf = self._get_query_type(column, lookup_type, value)
 
         if negated:
